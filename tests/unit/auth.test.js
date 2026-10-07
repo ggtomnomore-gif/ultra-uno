@@ -30,16 +30,33 @@ describe('authentication and account persistence', () => {
 
   test('validates runtime secrets and ports', () => {
     expect(() => loadConfig({ JWT_SECRET: 'short' })).toThrow(/almeno 32 caratteri/);
-    expect(() => loadConfig({ JWT_SECRET: SECRET, PORT: '65536' })).toThrow(/PORT/);
-    expect(loadConfig({ JWT_SECRET: SECRET, PORT: '3100' })).toEqual({ jwtSecret: SECRET, port: 3100 });
+    expect(() => loadConfig({ JWT_SECRET: SECRET, REDIS_URL: 'redis://localhost', PORT: '65536' })).toThrow(/PORT/);
+    expect(() => loadConfig({ JWT_SECRET: SECRET })).toThrow(/REDIS_URL/);
+    expect(loadConfig({ JWT_SECRET: SECRET, REDIS_URL: 'redis://localhost', PORT: '3100' }))
+      .toEqual({ jwtSecret: SECRET, redisUrl: 'redis://localhost', port: 3100 });
   });
 
-  test('reports database readiness separately from HTTP liveness', async () => {
+  test('reports PostgreSQL and Redis readiness separately from HTTP liveness', async () => {
     const pool = { query: jest.fn().mockResolvedValue({ rows: [{ '?column?': 1 }] }) };
-    const app = createApp({ pool, jwtSecret: SECRET });
+    const redisClient = { isReady: true, ping: jest.fn().mockResolvedValue('PONG') };
+    const app = createApp({ pool, redisClient, jwtSecret: SECRET });
     await request(app).get('/health').expect(200, { status: 'ok' });
     await request(app).get('/ready').expect(200, { status: 'ready' });
     expect(pool.query).toHaveBeenCalledWith('SELECT 1');
+    expect(redisClient.ping).toHaveBeenCalled();
+
+    const unavailableRedisApp = createApp({
+      pool,
+      redisClient: { ping: jest.fn().mockRejectedValue(new Error('connection refused')) },
+      jwtSecret: SECRET
+    });
+    const redisErrorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await request(unavailableRedisApp).get('/ready')
+        .expect(503, { status: 'not_ready', dependency: 'redis' });
+    } finally {
+      redisErrorLog.mockRestore();
+    }
 
     const unavailablePool = { query: jest.fn().mockRejectedValue(new Error('connection refused')) };
     const unavailableApp = createApp({ pool: unavailablePool, jwtSecret: SECRET });
@@ -138,6 +155,7 @@ describe('authentication and account persistence', () => {
     const revokedTokens = new Map();
     const redisClient = {
       isReady: true,
+      eval: jest.fn().mockResolvedValue([1, 900000]),
       set: jest.fn(async (key, value, options) => {
         revokedTokens.set(key, { value, options });
       }),

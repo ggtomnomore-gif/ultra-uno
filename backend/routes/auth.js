@@ -28,7 +28,12 @@ function issueToken(userId, secret, username) {
 
 function authRoutes({ pool, redisClient, jwtSecret, authRequired }) {
   const router = require('express').Router();
-  const authRateLimit = createRateLimit({ limit: 10, windowMs: 15 * 60 * 1000 });
+  const authRateLimit = createRateLimit({
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+    redisClient,
+    keyPrefix: 'uno:rate-limit:auth:'
+  });
 
   router.post('/register', authRateLimit, async (request, response) => {
     const validation = validateRegistration(request.body || {});

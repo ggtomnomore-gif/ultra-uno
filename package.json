@@ -10,7 +10,8 @@
     "seed": "node database/seed.js",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
-    "test:e2e": "cypress run"
+    "test:e2e": "cypress run",
+    "test:deploy": "node tests/deploy-smoke.js"
   },
   "engines": {
     "node": ">=20"

@@ -1,7 +1,8 @@
 # UNO ULTRA
 
 Piattaforma UNO ULTRA, in sviluppo: interfaccia web vanilla, server Express,
-account con JWT e PostgreSQL, calcolo MMR locale e partite locali di UNO contro
+account con JWT e PostgreSQL, MMR persistente per le partite online e partite
+locali di UNO contro
 bot, BlackJack contro il banco, Scopa, Ruba Mazzetto, Scala 40, Poker Texas e
 Millemiglia in modalità hot-seat per due giocatori.
 
@@ -9,9 +10,10 @@ Millemiglia in modalità hot-seat per due giocatori.
 
 - Node.js 20 o successivo
 - PostgreSQL 15
+- Redis 7 (obbligatorio per revoca sessioni e rate limiting condiviso)
 
 1. Copia `.env.example` in `.env` e imposta password PostgreSQL e un `JWT_SECRET`
-   casuale di almeno 32 caratteri.
+   casuale di almeno 32 caratteri; configura anche `DATABASE_URL` e `REDIS_URL`.
 2. Con Docker installato, avvia PostgreSQL 15, Redis 7, il server e Nginx:
 
 ```sh
@@ -20,10 +22,11 @@ docker compose up --build -d
 
 Apri `http://localhost:8080`. Per l'avvio locale alternativo, crea prima un
 database PostgreSQL 15, configura il `DATABASE_URL` in `.env`, quindi esegui
-questi comandi da PowerShell nella cartella `uno-ultra`:
+questi comandi da PowerShell nella cartella principale del progetto. Avvia
+anche Redis 7 e verifica che `REDIS_URL` sia configurato:
 
 ```powershell
-npm install
+npm ci
 npm run migrate
 npm run seed
 npm start
@@ -34,24 +37,28 @@ npm start
 `database/seeds/battle_card_rewards.json`; esegui prima `npm run migrate`.
 Le tre Sfide giornaliere sono definite dalla migrazione `004_daily_challenges.sql`;
 `npm run seed` non modifica il catalogo delle Sfide.
+Il Dockerfile applica automaticamente migrazioni e seed idempotenti prima di
+avviare l'applicazione, anche dopo un riavvio del container.
 
 `GET /health` verifica che il processo HTTP sia attivo; `GET /ready` verifica
-anche la connessione al database e restituisce HTTP 503 se PostgreSQL non è
+anche PostgreSQL e Redis e restituisce HTTP 503 se una dipendenza non è
 raggiungibile. La registrazione, l'accesso e il profilo autenticato sono
 disponibili su `/api/auth/register`, `/api/auth/login` e `/api/auth/me`.
 La registrazione inizializza le statistiche di tutte le otto modalità in una
 transazione e salva la password con bcrypt. I token scadono dopo sette giorni.
+Redis è obbligatorio: le API rifiutano le sessioni quando non possono verificarne
+la revoca e il rate limiter distribuito non ripiega su limiti locali in memoria.
 Per ripristinare un database non eseguire la cancellazione:
 modifiche strutturali future vanno aggiunte come nuove migrazioni numerate.
 Per abilitare il Negozio e la V-Card applica anche le migrazioni aggiornate con
 `npm run migrate`.
 
-Se PostgreSQL non è disponibile, accesso e registrazione restituiscono un errore
-esplicito. Per avviare l'intero stack locale con Docker usa
-`docker compose up --build -d`; in alternativa avvia PostgreSQL 15, applica
-`npm run migrate` e poi `npm start`. Nel frattempo è possibile usare
-la modalità ospite per giocare alle modalità locali senza account; progressi,
-negozio e stanze online richiedono PostgreSQL attivo.
+Se PostgreSQL o Redis non sono disponibili, le funzioni account e online
+restituiscono un errore esplicito. Per avviare l'intero stack locale con Docker
+usa `docker compose up --build -d`; in alternativa avvia PostgreSQL 15 e Redis
+7, applica `npm run migrate`, esegui `npm run seed` e poi `npm start`. È inoltre
+possibile usare la modalità ospite per giocare alle modalità locali senza
+account; progressi, negozio e stanze online richiedono le dipendenze attive.
 
 ## Test
 
@@ -64,6 +71,10 @@ Con il server già avviato, i test E2E si eseguono con:
 ```powershell
 npm run test:e2e
 ```
+
+`npm run test:deploy -- http://localhost:8080` verifica l'account, la revoca
+della sessione e l'autenticazione WebSocket passando da Nginx. La workflow CI
+esegue Jest e questa prova con l'intero stack Docker avviato da zero.
 
 ## Funzionalità implementate e limiti attuali
 
@@ -95,15 +106,16 @@ npm run test:e2e
   20 livelli bonus e riscatti singoli o sequenziali. Le partite locali non
   assegnano XP. I crediti non sono denaro reale. È pronto un wrapper client
   PeerJS, non integrato nel gameplay.
-- Ancora da realizzare: Redis per la presenza, amicizie persistenti, matchmaking, integrazione
+- Ancora da realizzare: presenza online persistente, amicizie, matchmaking, integrazione
   PeerJS e delle altre modalità online nella lobby, rotazione del catalogo
   Sfide, tornei
-  e replay. Docker/Nginx sono predisposti ma il deploy
-  non è ancora verificato end-to-end.
+  e replay. Docker Compose/Nginx vengono verificati in CI tramite una prova di
+  registrazione, revoca sessioni e apertura stanza WebSocket.
 - La modalità competitiva resta disabilitata finché non esiste matchmaking
   server-side.
 
-La specifica completa e aggiornata è in [`../IMPLEMENTAZIONE.md`](../IMPLEMENTAZIONE.md).
+Lo stato verificato delle modalità e delle funzionalità è in
+[`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
 I contratti HTTP e WebSocket sono documentati in [`docs/API.md`](docs/API.md).
 Le regole e i limiti dei motori locali sono descritti in
 [`docs/GAME_RULES.md`](docs/GAME_RULES.md); i controlli operativi per un futuro

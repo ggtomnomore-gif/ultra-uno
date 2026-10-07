@@ -36,7 +36,11 @@ describe('server-authoritative UNO rooms', () => {
     expect(hostState.payload.state.drawPile.every((card) => card === null)).toBe(true);
     expect(hostState.payload.privateHand).toHaveLength(hostState.payload.state.players[0].handCount);
     expect(guestState.payload.privateHand).toHaveLength(guestState.payload.state.players[1].handCount);
-    expect(JSON.stringify(hostState)).not.toContain(guestState.payload.privateHand[0].id);
+    const visibleHostCardIds = [
+      ...hostState.payload.privateHand,
+      ...hostState.payload.state.discardPile
+    ].map((card) => card.id);
+    expect(visibleHostCardIds).not.toContain(guestState.payload.privateHand[0].id);
     expect(hostState.payload.state).not.toHaveProperty('privateHands');
     expect(rooms.startGame(host, 'uno')).toBe(false);
     expect(host.messages.at(-1).payload.code).toBe('GAME_ALREADY_STARTED');

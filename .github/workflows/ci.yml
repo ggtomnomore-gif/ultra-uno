@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  deploy-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Configure ephemeral deployment credentials
+        run: |
+          printf 'JWT_SECRET=%s\n' "$(openssl rand -hex 32)" > .env
+          printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env
+      - name: Start PostgreSQL, Redis, app, and Nginx
+        run: docker compose up --build --detach
+      - name: Wait for the proxied service to become ready
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:8080/ready; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+      - name: Verify account, Redis revocation, and WebSocket through Nginx
+        run: npm run test:deploy -- http://localhost:8080
+      - name: Stop test deployment
+        if: always()
+        run: docker compose down --volumes --remove-orphans

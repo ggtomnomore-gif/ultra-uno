@@ -11,7 +11,12 @@ function loadConfig(environment = process.env) {
     throw new Error('PORT deve essere un numero intero compreso tra 1 e 65535.');
   }
 
-  return { port, jwtSecret };
+  const redisUrl = environment.REDIS_URL;
+  if (!redisUrl) {
+    throw new Error('REDIS_URL è obbligatorio per verificare e revocare le sessioni.');
+  }
+
+  return { port, jwtSecret, redisUrl };
 }
 
 module.exports = { loadConfig };

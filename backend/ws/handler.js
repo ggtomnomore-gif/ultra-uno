@@ -4,9 +4,21 @@ const { WebSocketServer } = require('ws');
 const jwt = require('jsonwebtoken');
 const { createRoomManager } = require('./rooms');
 
-function createWebSocketServer(httpServer, { jwtSecret, rooms, onGameFinished }) {
+function createWebSocketServer(httpServer, { jwtSecret, redisClient, rooms, onGameFinished }) {
   const roomManager = rooms || createRoomManager({ onGameFinished });
   const websocketServer = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
+  const heartbeat = setInterval(() => {
+    websocketServer.clients.forEach((client) => {
+      if (client.readyState !== 1) return;
+      if (client.isAlive === false) {
+        client.terminate();
+        return;
+      }
+      client.isAlive = false;
+      client.ping();
+    });
+  }, 30000);
+  heartbeat.unref();
 
   httpServer.on('upgrade', (request, socket, head) => {
     const pathname = new URL(request.url, 'http://localhost').pathname;
@@ -30,11 +42,13 @@ function createWebSocketServer(httpServer, { jwtSecret, rooms, onGameFinished })
       messageCount: 0
     };
     roomManager.addClient(client);
+    client.isAlive = true;
+    client.on('pong', () => { client.isAlive = true; });
     client.userId = null;
     client.username = null;
     client.roomId = null;
 
-    client.on('message', (rawMessage) => {
+    client.on('message', async (rawMessage) => {
       const now = Date.now();
       if (now - peer.messageWindowStarted >= 60000) {
         peer.messageWindowStarted = now;
@@ -63,6 +77,22 @@ function createWebSocketServer(httpServer, { jwtSecret, rooms, onGameFinished })
         }
         try {
           const identity = jwt.verify(message.payload.token, jwtSecret, { algorithms: ['HS256'] });
+          if (redisClient && !redisClient.isReady) {
+            client.close(1013, 'Session store non disponibile');
+            return;
+          }
+          if (redisClient && identity.jti) {
+            try {
+              if (await redisClient.get(`revoked:${identity.jti}`)) {
+                client.close(1008, 'Token revocato');
+                return;
+              }
+            } catch (error) {
+              console.error('WebSocket session revocation lookup failed:', error.message);
+              client.close(1013, 'Verifica sessione non disponibile');
+              return;
+            }
+          }
           peer.authenticated = true;
           peer.userId = String(identity.sub);
           client.userId = peer.userId;
@@ -113,7 +143,10 @@ function createWebSocketServer(httpServer, { jwtSecret, rooms, onGameFinished })
     });
   });
 
-  websocketServer.on('close', () => roomManager.closeAll());
+  websocketServer.on('close', () => {
+    clearInterval(heartbeat);
+    roomManager.closeAll();
+  });
   return websocketServer;
 }
 

@@ -32,10 +32,20 @@ function createApp(options = {}) {
   app.get('/ready', async (_request, response) => {
     try {
       await database.query('SELECT 1');
+    } catch (error) {
+      console.error('Database readiness check failed:', error.message);
+      response.status(503).json({ status: 'not_ready', dependency: 'database' });
+      return;
+    }
+    try {
+      if (redisClient) {
+        if (!redisClient.isReady) throw new Error('Redis client is not ready.');
+        await redisClient.ping();
+      }
       response.json({ status: 'ready' });
     } catch (error) {
-      console.error('Readiness check failed:', error.message);
-      response.status(503).json({ status: 'not_ready', dependency: 'database' });
+      console.error('Redis readiness check failed:', error.message);
+      response.status(503).json({ status: 'not_ready', dependency: 'redis' });
     }
   });
 
@@ -85,6 +95,7 @@ function createHttpServer(options = {}) {
   const database = options.pool || pool;
   const websocketServer = createWebSocketServer(server, {
     jwtSecret: options.jwtSecret || process.env.JWT_SECRET,
+    redisClient: options.redisClient,
     rooms: options.rooms,
     onGameFinished: options.onGameFinished || ((result) => recordMatchResult(database, result))
   });
@@ -94,7 +105,7 @@ function createHttpServer(options = {}) {
 if (require.main === module) {
   const config = loadConfig();
   const { createRedisClient } = require('./config/redis');
-  const redisClient = process.env.REDIS_URL ? createRedisClient() : null;
+  const redisClient = createRedisClient(config.redisUrl);
   const { server, websocketServer } = createHttpServer({ jwtSecret: config.jwtSecret, redisClient });
   let shuttingDown = false;
   const shutdown = async () => {

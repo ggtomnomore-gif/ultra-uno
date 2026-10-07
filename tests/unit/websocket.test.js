@@ -2,6 +2,7 @@
 
 const { createServer: createHttp } = require('node:http');
 const WebSocket = require('ws');
+const jwt = require('jsonwebtoken');
 const { issueToken } = require('../../backend/routes/auth');
 const { createWebSocketServer } = require('../../backend/ws/handler');
 
@@ -37,10 +38,12 @@ describe('authenticated room WebSocket', () => {
   let httpServer;
   let websocketServer;
   let port;
+  let redisClient;
 
   beforeAll(async () => {
     httpServer = createHttp();
-    websocketServer = createWebSocketServer(httpServer, { jwtSecret: SECRET });
+    redisClient = { isReady: true, get: jest.fn().mockResolvedValue(null) };
+    websocketServer = createWebSocketServer(httpServer, { jwtSecret: SECRET, redisClient });
     await new Promise((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
     port = httpServer.address().port;
   });
@@ -112,5 +115,26 @@ describe('authenticated room WebSocket', () => {
     );
     host.close();
     guest.close();
+  });
+
+  test('rejects revoked session tokens on the WebSocket authentication path', async () => {
+    redisClient.get.mockResolvedValueOnce('1');
+    const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    await new Promise((resolve, reject) => {
+      socket.once('open', resolve);
+      socket.once('error', reject);
+    });
+    const closed = new Promise((resolve) => socket.once('close', (code) => resolve(code)));
+    socket.send(JSON.stringify({
+      type: 'auth',
+      payload: {
+        token: jwt.sign({ sub: '13', username: 'user-13', jti: 'revoked-jti' }, SECRET, {
+          algorithm: 'HS256',
+          expiresIn: '1h'
+        })
+      }
+    }));
+    await expect(closed).resolves.toBe(1008);
+    expect(redisClient.get).toHaveBeenCalledWith('revoked:revoked-jti');
   });
 });

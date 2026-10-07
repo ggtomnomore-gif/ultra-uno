@@ -9,6 +9,7 @@ Base URL locale: `http://localhost:3000`. Le API JSON accettano e restituiscono
 | Metodo e percorso | Auth | Descrizione |
 |---|---|---|
 | `GET /health` | No | Stato del processo HTTP: `{"status":"ok"}`. Non verifica PostgreSQL o Redis. |
+| `GET /ready` | No | Verifica PostgreSQL e Redis; risponde `503` se una dipendenza non è disponibile. |
 | `POST /api/auth/register` | No | Crea account e statistiche iniziali per le modalità. |
 | `POST /api/auth/login` | No | Autentica username e password e rilascia il JWT. |
 | `GET /api/auth/me` | Sì | Restituisce profilo, MMR e rank persistenti per modalità. |
@@ -101,7 +102,8 @@ sfida e giorno UTC; una sfida incompleta o già riscattata restituisce `409`.
 ## WebSocket
 
 Connessione a `ws://localhost:3000/ws` (produzione HTTPS: `wss://.../ws`).
-Inviare subito dopo l'apertura:
+Il client invia il JWT nel primo frame dopo l'apertura del WebSocket, non
+nell'URL:
 
 ```json
 { "type": "auth", "payload": { "token": "<JWT>" } }
@@ -117,6 +119,11 @@ forma `{"type":"...","payload":{...}}`.
 | `room.leave` | `{}` | Abbandona la stanza; se esce l'host la stanza viene chiusa. |
 | `game.start` | `{"mode":"uno"}` | Solo l'host; il server avvia UNO Classic quando ci sono almeno due giocatori. |
 | `game.action` | `{"action":{"type":"draw"}}` | Azione del giocatore autenticato; il server verifica turno e regole. |
+
+Un ping WebSocket inviato dal server ogni 30 secondi mantiene viva la
+connessione dietro Nginx e verifica i client ancora raggiungibili. Redis
+controlla la revoca del JWT anche durante l'autenticazione WebSocket; se Redis
+non è disponibile il server rifiuta la connessione.
 
 Le altre azioni UNO sono `{"type":"pass"}` e
 `{"type":"play","cardId":"...","color":"red"}`. Una carta jolly richiede il
@@ -140,6 +147,6 @@ la lobby lo ricarica quando si rientra dalla partita.
 ## Fuori ambito attuale
 
 Non sono ancora disponibili matchmaking, riconnessione, API per amici,
-leaderboard, sfide o tornei. `GET
-/health` è un controllo del processo e non sostituisce un health check dei
-servizi PostgreSQL/Redis.
+leaderboard o tornei. Per lo stato di ciascuna modalità consultare
+[`PROJECT_STATUS.md`](PROJECT_STATUS.md). `GET /health` controlla il processo;
+`GET /ready` verifica anche PostgreSQL e Redis.
