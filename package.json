@@ -1,0 +1,33 @@
+{
+  "name": "uno-ultra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "UNO ULTRA - prima versione giocabile",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "migrate": "node database/migrate.js",
+    "seed": "node database/seed.js",
+    "test": "jest --runInBand",
+    "test:watch": "jest --watch",
+    "test:e2e": "cypress run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "peerjs": "1.5.4",
+    "pg": "^8.16.3",
+    "redis": "^5.8.2",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "cypress": "^16.1.1",
+    "jest": "^30.0.5",
+    "supertest": "^7.3.1"
+  }
+}

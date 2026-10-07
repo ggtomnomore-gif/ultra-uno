@@ -1,0 +1,10 @@
+{
+  "seasonId": "ultra-season-1",
+  "name": "Stagione UNO ULTRA",
+  "maxLevel": 100,
+  "xpPerLevel": 1000,
+  "standardPrice": 1000,
+  "boostedPrice": 1500,
+  "freeCreditsPerLevel": 5,
+  "premiumCreditsPerLevel": 5
+}

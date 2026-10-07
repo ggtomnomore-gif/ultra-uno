@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="it" data-theme="cyber-blue">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d1b2a">
+  <meta name="description" content="UNO ULTRA: gioca a UNO contro i bot.">
+  <title>UNO ULTRA — PLAY · RANK · DOMINATE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <script defer src="/vendor/peerjs/peerjs.min.js"></script>
+  <script defer src="js/game-modes/italian-deck.js"></script>
+  <script defer src="js/game-modes/melds.js"></script>
+  <script defer src="js/game-modes/blackjack.js"></script>
+  <script defer src="js/game-modes/burraco.js"></script>
+  <script defer src="js/game-modes/mille.js"></script>
+  <script defer src="js/game-modes/poker.js"></script>
+  <script defer src="js/game-modes/ruba-mazzetto.js"></script>
+  <script defer src="js/game-modes/scala40.js"></script>
+  <script defer src="js/game-modes/scopa.js"></script>
+  <script defer src="js/p2p.js"></script>
+  <script defer src="js/ws-client.js"></script>
+  <script defer src="js/game-engine.js"></script>
+  <script defer src="js/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Salta al contenuto</a>
+  <canvas id="particles" aria-hidden="true"></canvas>
+  <main id="main">
+    <section id="home-screen" class="screen home-screen" aria-labelledby="logo">
+      <div class="brand-lockup">
+        <p class="eyebrow">CARD BATTLES · SEASON 01</p>
+        <h1 id="logo">UNO <span>ULTRA</span></h1>
+        <p class="tagline">PLAY <i>·</i> RANK <i>·</i> DOMINATE</p>
+      </div>
+      <div class="home-card glass">
+        <p class="home-copy">Le carte sono sul tavolo.<br><strong>La prossima mossa è tua.</strong></p>
+        <label class="field-label" for="player-name">Il tuo nome giocatore</label>
+        <input id="player-name" class="text-field" maxlength="15" minlength="3" autocomplete="nickname" value="Giocatore">
+        <button id="quick-play-button" class="button button-primary" type="button">
+          <span>GIOCA SUBITO</span><b>SENZA ACCOUNT</b>
+        </button>
+        <button id="advance-button" class="button button-quiet home-account-button" type="button">ACCEDI / REGISTRATI</button>
+        <p class="fine-print">Le modalità locali non richiedono un account.</p>
+      </div>
+      <div class="home-footer"><span class="status-dot"></span> ARENA ONLINE <span>·</span> UNO CLASSICO</div>
+    </section>
+
+    <section id="auth-screen" class="screen home-screen auth-screen hidden" aria-labelledby="auth-title">
+      <div class="auth-shell glass">
+        <button id="auth-back" class="button button-quiet auth-back" type="button">← INDIETRO</button>
+        <p class="eyebrow">LA TUA ARENA · IL TUO PROFILO</p>
+        <h2 id="auth-title">Accedi <span>all'arena.</span></h2>
+        <div class="auth-switch" role="tablist" aria-label="Accesso account">
+          <button id="login-tab" class="auth-tab active" type="button" role="tab" aria-selected="true">Accedi</button>
+          <button id="register-tab" class="auth-tab" type="button" role="tab" aria-selected="false">Registrati</button>
+        </div>
+        <form id="login-form">
+          <label class="field-label" for="login-username">Nome utente</label>
+          <input id="login-username" class="text-field" name="username" maxlength="15" autocomplete="username" required>
+          <label class="field-label auth-label-gap" for="login-password">Password</label>
+          <input id="login-password" class="text-field" name="password" type="password" autocomplete="current-password" required>
+          <button class="button button-primary auth-submit" type="submit">ACCEDI <span>→</span></button>
+        </form>
+        <form id="register-form" class="hidden">
+          <label class="field-label" for="register-username">Nome utente</label>
+          <input id="register-username" class="text-field" name="username" minlength="3" maxlength="15" pattern="[A-Za-z0-9_]{3,15}" autocomplete="username" required>
+          <label class="field-label auth-label-gap" for="register-password">Password · almeno 8 caratteri, una lettera e un numero</label>
+          <input id="register-password" class="text-field" name="password" type="password" minlength="8" maxlength="72" pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}" autocomplete="new-password" required>
+          <button class="button button-primary auth-submit" type="submit">CREA ACCOUNT <span>→</span></button>
+        </form>
+        <button id="guest-play-button" class="button button-quiet auth-submit" type="button">CONTINUA COME OSPITE</button>
+        <p id="auth-message" role="status" aria-live="polite" class="auth-message"></p>
+        <p class="fine-print">Come ospite puoi giocare solo alle modalità locali. Account e progressi richiedono il database online.</p>
+      </div>
+    </section>
+
+    <section id="lobby-screen" class="screen lobby-screen hidden" aria-labelledby="lobby-title">
+      <header class="topbar glass">
+        <a class="mini-brand" href="#" aria-label="UNO ULTRA home">UNO<span>ULTRA</span></a>
+        <nav class="top-tabs" aria-label="Sezioni">
+          <button class="top-tab active" type="button" data-section="play">Gioca</button>
+          <button class="top-tab" type="button" data-section="shop">Negozio</button>
+          <button class="top-tab" type="button" data-section="locker">Armadietto</button>
+          <button class="top-tab" type="button" data-section="pass">Battle Card</button>
+          <button class="top-tab" type="button" data-section="challenges">Sfide</button>
+          <button class="top-tab" type="button" data-section="tournaments">Tornei</button>
+          <button class="top-tab" type="button" data-section="career">Carriera</button>
+          <button class="top-tab" type="button" data-section="wallet">V-Card</button>
+        </nav>
+        <button id="theme-button" class="icon-button" type="button" aria-label="Cambia tema" title="Cambia tema">◐</button>
+      </header>
+      <div class="lobby-layout">
+        <aside class="sidebar glass" aria-label="Navigazione giocatore">
+          <div class="sidebar-kicker">ARENA</div>
+          <button class="side-link selected" type="button" data-section="play"><span>◈</span> Gioca</button>
+          <button class="side-link" type="button" data-section="career"><span>◎</span> Profilo</button>
+          <button class="side-link" type="button" data-section="challenges"><span>✳</span> Sfide</button>
+          <button class="side-link" type="button" data-section="pass"><span>▤</span> Season Pass</button>
+          <button class="side-link" type="button" data-section="wallet"><span>⌁</span> V-Card</button>
+          <div class="sidebar-spacer"></div>
+          <div class="player-card">
+            <div class="avatar" aria-hidden="true">U</div>
+            <div><strong id="lobby-player-name">Giocatore</strong><span id="player-session-label">Livello 01 · Bronze I</span></div>
+            <button id="logout-button" class="logout-button" type="button" aria-label="Esci dall'account" title="Esci">↗</button>
+          </div>
+        </aside>
+        <section class="lobby-content">
+          <div class="news glass"><span class="news-tag">PATCH 01</span><p>La prima arena UNO ULTRA è aperta. Affronta i bot e fai la tua mossa!</p><span class="news-arrow">↗</span></div>
+          <div class="lobby-heading">
+            <div><p class="eyebrow">TROVA LA TUA ARENA</p><h2 id="lobby-title">È il tuo <span>turno.</span></h2></div>
+            <div class="rank-chip"><span>◈</span><div><small>RANK</small><strong id="rank-value">BRONZE I</strong><small id="rank-mmr">200 MMR</small></div></div>
+          </div>
+          <div id="play-layout" class="play-layout">
+            <div class="mode-panel glass">
+              <div class="panel-heading"><span class="eyebrow">MODALITÀ SELEZIONATA</span><span class="live-label"><i></i> PRONTO</span></div>
+              <h3>UNO <span>CLASSIC</span></h3>
+              <p>Gioca una partita classica contro tre profili bot. Svuota la mano per conquistare la vittoria.</p>
+              <label class="field-label mode-select-label" for="game-mode">Scegli una modalità giocabile</label>
+              <select id="game-mode" class="text-field">
+                <option value="uno">UNO Classic · 4 giocatori</option>
+                <option value="blackjack">BlackJack · contro il banco</option>
+                <option value="scopa">Scopa · 2 giocatori locali</option>
+                <option value="ruba-mazzetto">Ruba Mazzetto · 2 giocatori locali</option>
+                <option value="scala40">Scala 40 · 2 giocatori locali</option>
+                <option value="poker">Poker Texas · 2 giocatori locali</option>
+                <option value="mille">Millemiglia · 2 giocatori locali</option>
+              </select>
+              <div class="mode-stats"><div><strong>4</strong><small>GIOCATORI</small></div><div><strong>108</strong><small>CARTE</small></div><div><strong>3</strong><small>BOT AI</small></div></div>
+              <label class="toggle-row"><span><strong>Modalità competitiva</strong><small>La coda ranked sarà disponibile in futuro</small></span><input id="competitive-toggle" type="checkbox" disabled><span class="toggle" aria-hidden="true"></span></label>
+              <div class="room-tools">
+                <button id="create-room-button" class="button button-quiet room-create" type="button">CREA STANZA ONLINE</button>
+                <div class="room-join">
+                  <label class="sr-only" for="room-code">Codice stanza online</label>
+                  <input id="room-code" class="text-field" maxlength="8" autocomplete="off" placeholder="CODICE STANZA">
+                  <button id="join-room-button" class="button button-quiet" type="button" aria-label="Unisciti alla stanza">↗</button>
+                </div>
+                <p id="room-status" class="room-status" role="status" aria-live="polite" hidden></p>
+                <button id="start-online-button" class="button button-primary" type="button" hidden>AVVIA PARTITA ONLINE</button>
+                <button id="leave-room-button" class="text-button" type="button" hidden>ESCI DALLA STANZA</button>
+              </div>
+              <button id="play-button" class="button button-primary play-button" type="button">GIOCA ORA <span>→</span></button>
+            </div>
+            <div class="table-scene" aria-label="Tavolo da gioco UNO">
+              <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+              <div class="floating-card card-red" aria-hidden="true"><span>7</span><i>UNO</i></div>
+              <div class="floating-card card-blue" aria-hidden="true"><span>↻</span><i>UNO</i></div>
+              <div class="floating-card card-yellow" aria-hidden="true"><span>+2</span><i>UNO</i></div>
+              <div class="table-center"><span class="table-spark">✦</span><strong>PLAY<br>YOUR<br>CARDS</strong><span class="table-caption">IL TAVOLO TI ASPETTA</span></div>
+              <div class="level-orb"><small>BATTLE<br>PASS</small><b>01</b></div>
+            </div>
+          </div>
+          <section id="store-panel" class="store-panel hidden" aria-labelledby="store-title">
+            <div class="store-heading">
+              <div><p class="eyebrow">OGGETTI COSMETICI</p><h2 id="store-title">Negozio <span>ULTRA</span></h2></div>
+              <p class="store-balance">V-COINS <strong id="store-credits">—</strong></p>
+            </div>
+            <p id="store-message" class="lobby-notice" role="status" aria-live="polite"></p>
+            <div id="store-items" class="store-items" role="list"></div>
+            <p class="store-footnote">I V-Coins sono crediti virtuali di prova, non acquistabili con denaro reale.</p>
+          </section>
+          <section id="wallet-panel" class="store-panel wallet-panel hidden" aria-labelledby="wallet-title">
+            <div class="store-heading">
+              <div><p class="eyebrow">PORTAFOGLIO VIRTUALE</p><h2 id="wallet-title">V-Card <span>ULTRA</span></h2></div>
+              <p class="store-balance">V-COINS <strong id="wallet-credits">—</strong></p>
+            </div>
+            <p id="wallet-active-theme" class="wallet-active-theme"></p>
+            <h3 class="wallet-history-title">ATTIVITÀ RECENTE</h3>
+            <div id="wallet-history" class="wallet-history" role="list"></div>
+            <p class="store-footnote">I V-Coins sono crediti virtuali di prova, non convertibili in denaro reale.</p>
+            <button class="button button-quiet" type="button" data-section="shop">APRI IL NEGOZIO</button>
+          </section>
+          <section id="locker-panel" class="store-panel locker-panel hidden" aria-labelledby="locker-title">
+            <div class="store-heading">
+              <div><p class="eyebrow">I TUOI OGGETTI</p><h2 id="locker-title">Armadietto <span>ULTRA</span></h2></div>
+            </div>
+            <p id="locker-message" class="wallet-active-theme"></p>
+            <div id="locker-items" class="store-items" role="list"></div>
+            <button class="button button-quiet" type="button" data-section="shop">SCOPRI IL NEGOZIO</button>
+          </section>
+          <section id="battle-card-panel" class="store-panel battle-card-panel hidden" aria-labelledby="battle-card-title">
+            <div class="store-heading">
+              <div><p class="eyebrow">PROGRESSIONE STAGIONALE</p><h2 id="battle-card-title" tabindex="-1">Battle Card <span>ULTRA</span></h2></div>
+              <p id="battle-card-level-label" class="store-balance">LIVELLO <strong>—</strong></p>
+            </div>
+            <p id="battle-card-progress" class="wallet-active-theme" role="status" aria-live="polite">Caricamento progressi…</p>
+            <p id="battle-card-message" class="lobby-notice" role="status" aria-live="polite"></p>
+            <div class="battle-card-actions">
+              <button id="battle-card-unlock-standard" class="button button-quiet" type="button" data-battle-action="unlock" data-tier="standard">PASS PREMIUM · 1000 V</button>
+              <button id="battle-card-unlock-boosted" class="button button-primary" type="button" data-battle-action="unlock" data-tier="boosted">PASS + 20 LIVELLI · 1500 V</button>
+              <button id="battle-card-claim-all" class="button button-quiet" type="button" data-battle-action="claim-all">RISCATTA TUTTO</button>
+            </div>
+            <div id="battle-card-levels" class="battle-card-levels" role="list" aria-label="Livelli e ricompense della stagione"></div>
+            <p class="store-footnote">Ogni partita UNO online completata assegna esperienza; la vittoria concede esperienza bonus. Le partite locali non hanno ancora progressione salvata.</p>
+          </section>
+          <section id="challenges-panel" class="store-panel challenges-panel hidden" aria-labelledby="challenges-title">
+            <div class="store-heading">
+              <div><p class="eyebrow">OBIETTIVI GIORNALIERI · UTC</p><h2 id="challenges-title" tabindex="-1">Sfide <span>ULTRA</span></h2></div>
+              <p id="challenges-date" class="store-balance">GIORNO <strong>—</strong></p>
+            </div>
+            <p id="challenges-message" class="lobby-notice" role="status" aria-live="polite">Caricamento sfide…</p>
+            <div id="challenge-list" class="challenge-list" role="list" aria-label="Sfide giornaliere"></div>
+            <p class="store-footnote">Le sfide avanzano solo completando partite UNO online verificate dal server. I V-Coins sono crediti virtuali.</p>
+          </section>
+          <div class="coming-soon"><span>IN ARRIVO</span> Altre modalità, amici e progressi si aggiungeranno ai prossimi aggiornamenti.</div>
+          <p id="lobby-notice" class="lobby-notice" role="status" aria-live="polite" hidden></p>
+        </section>
+      </div>
+      <div id="battle-card-reward-dialog" class="dialog-backdrop hidden" role="presentation">
+        <section class="scopa-capture-dialog glass" role="dialog" aria-modal="true" aria-labelledby="battle-card-reward-title">
+          <p class="eyebrow">RICOMPENSA SBLOCCATA</p>
+          <h2 id="battle-card-reward-title">Battle Card</h2>
+          <p id="battle-card-reward-copy"></p>
+          <p id="battle-card-reward-count" class="wallet-active-theme"></p>
+          <button id="battle-card-reward-next" class="button button-primary" type="button" data-battle-action="reward-next">AVANTI</button>
+          <button id="battle-card-reward-close" class="text-button" type="button" data-battle-action="reward-close">CHIUDI</button>
+        </section>
+      </div>
+    </section>
+
+    <section id="game-screen" class="screen game-screen hidden" aria-labelledby="game-title">
+      <header class="game-header">
+        <button id="back-button" class="button button-quiet" type="button">← LOBBY</button>
+        <div class="game-title"><span id="match-label" class="eyebrow">MATCH CASUAL · 4 GIOCATORI</span><h2 id="game-title">UNO <span>CLASSIC</span></h2></div>
+        <div class="turn-indicator"><i></i><span id="turn-label">IL TUO TURNO</span></div>
+      </header>
+      <div id="uno-board" class="game-board glass">
+        <div class="opponents" id="opponents" aria-label="Avversari"></div>
+        <div class="table-area">
+          <div class="pile draw-pile"><span>UNO</span><small id="draw-count">MAZZO · 0</small></div>
+          <div class="pile discard-pile" id="discard-pile" aria-label="Carta in cima agli scarti"></div>
+          <div class="board-message" id="board-message" role="status" aria-live="polite"></div>
+          <div class="turn-actions">
+            <button id="draw-button" class="button button-quiet draw-button" type="button">PESCA CARTA</button>
+            <button id="pass-button" class="button button-quiet draw-button hidden" type="button">PASSA TURNO</button>
+          </div>
+        </div>
+        <div class="hand-header"><span>LA TUA MANO <b id="hand-count">0</b></span><span class="hint">Seleziona una carta valida per giocare</span></div>
+        <div id="hand" class="hand" role="group" aria-label="Le tue carte"></div>
+      </div>
+      <div id="blackjack-board" class="game-board glass blackjack-board hidden">
+        <section class="blackjack-hand" aria-labelledby="dealer-label">
+          <div class="blackjack-hand-heading"><h3 id="dealer-label">BANCO</h3><span id="dealer-score" class="blackjack-score"></span></div>
+          <div id="dealer-cards" class="blackjack-cards" role="group" aria-label="Carte del banco"></div>
+        </section>
+        <p id="blackjack-message" class="board-message blackjack-message" role="status" aria-live="polite"></p>
+        <section class="blackjack-hand" aria-labelledby="player-label">
+          <div class="blackjack-hand-heading"><h3 id="player-label">LA TUA MANO</h3><span id="player-score" class="blackjack-score"></span></div>
+          <div id="blackjack-player-cards" class="blackjack-cards" role="group" aria-label="Le tue carte"></div>
+        </section>
+        <div class="blackjack-actions">
+          <button id="blackjack-hit" class="button button-quiet" type="button">CARTA</button>
+          <button id="blackjack-stand" class="button button-quiet" type="button">STAI</button>
+          <button id="blackjack-double" class="button button-primary" type="button">RADDOPPIA</button>
+        </div>
+      </div>
+      <div id="scopa-board" class="game-board glass scopa-board hidden">
+        <div class="scopa-scoreboard">
+          <div><span id="scopa-player-name">GIOCATORE</span><strong id="scopa-player-score">0</strong></div>
+          <span id="scopa-score-label" class="scopa-score-divider">PUNTI PROVVISORI</span>
+          <div><span id="scopa-opponent-name">AVVERSARIO</span><strong id="scopa-opponent-score">0</strong></div>
+        </div>
+        <section class="scopa-table-section" aria-labelledby="scopa-table-label">
+          <div class="scopa-table-heading"><h3 id="scopa-table-label">TAVOLO</h3><span id="scopa-deck-count"></span></div>
+          <div id="scopa-table" class="scopa-cards" role="group" aria-label="Carte sul tavolo"></div>
+        </section>
+        <p id="scopa-message" class="board-message scopa-message" role="status" aria-live="polite"></p>
+        <section class="scopa-hand-section" aria-labelledby="scopa-hand-label">
+          <div class="scopa-table-heading"><h3 id="scopa-hand-label">MANO DI <span id="scopa-turn-name"></span></h3><span id="scopa-hand-count"></span></div>
+          <div id="scopa-hand" class="scopa-cards" role="group" aria-label="Carte in mano al giocatore di turno"></div>
+        </section>
+        <div id="scopa-capture-dialog" class="dialog-backdrop hidden" role="presentation">
+          <section class="scopa-capture-dialog glass" role="dialog" aria-modal="true" aria-labelledby="scopa-capture-title">
+            <button id="scopa-capture-cancel" class="dialog-close" type="button" aria-label="Annulla scelta presa">×</button>
+            <p class="eyebrow">PRESA DISPONIBILE</p><h2 id="scopa-capture-title">Scegli le carte da prendere</h2>
+            <div id="scopa-capture-options" class="scopa-capture-options" role="group" aria-label="Prese possibili"></div>
+          </section>
+        </div>
+      </div>
+      <div id="ruba-board" class="game-board glass scopa-board hidden">
+        <div class="ruba-piles">
+          <section class="ruba-pile-panel" aria-labelledby="ruba-opponent-name">
+            <div class="scopa-table-heading"><h3 id="ruba-opponent-name">AVVERSARIO</h3><span id="ruba-opponent-count">0 CARTE</span></div>
+            <div id="ruba-opponent-pile" class="ruba-pile-top"></div>
+          </section>
+          <section class="ruba-pile-panel" aria-labelledby="ruba-player-name">
+            <div class="scopa-table-heading"><h3 id="ruba-player-name">GIOCATORE</h3><span id="ruba-player-count">0 CARTE</span></div>
+            <div id="ruba-player-pile" class="ruba-pile-top"></div>
+          </section>
+        </div>
+        <p id="ruba-message" class="board-message scopa-message" role="status" aria-live="polite"></p>
+        <section class="scopa-hand-section" aria-labelledby="ruba-hand-label">
+          <div class="scopa-table-heading"><h3 id="ruba-hand-label">MANO DI <span id="ruba-turn-name"></span></h3><span id="ruba-hand-count"></span></div>
+          <div id="ruba-hand" class="scopa-cards" role="group" aria-label="Carte in mano al giocatore di turno"></div>
+        </section>
+      </div>
+      <div id="scala-board" class="game-board glass scopa-board hidden">
+        <div class="scopa-scoreboard">
+          <div><span id="scala-player-name">GIOCATORE</span><strong id="scala-player-count">13</strong></div>
+          <span class="scopa-score-divider">CARTE IN MANO</span>
+          <div><span id="scala-opponent-name">AVVERSARIO</span><strong id="scala-opponent-count">13</strong></div>
+        </div>
+        <section class="scala-table-section" aria-labelledby="scala-table-label">
+          <div class="scopa-table-heading"><h3 id="scala-table-label">COMBINAZIONI APERTE</h3><span id="scala-discard-count"></span></div>
+          <div id="scala-table" class="scala-open-melds" role="group" aria-label="Combinazioni scoperte"></div>
+        </section>
+        <div class="scala-draw-actions">
+          <button id="scala-draw-deck" class="button button-quiet" type="button">PESCA DAL MAZZO</button>
+          <button id="scala-draw-discard" class="button button-quiet" type="button">PRENDI LO SCARTO</button>
+        </div>
+        <p id="scala-message" class="board-message scopa-message" role="status" aria-live="polite"></p>
+        <section class="scopa-hand-section" aria-labelledby="scala-hand-label">
+          <div class="scopa-table-heading"><h3 id="scala-hand-label">MANO DI <span id="scala-turn-name"></span></h3><span id="scala-hand-count"></span></div>
+          <div id="scala-hand" class="scopa-cards scala-player-hand" role="group" aria-label="Seleziona carte dalla mano"></div>
+        </section>
+        <div class="scala-turn-actions">
+          <button id="scala-meld" class="button button-quiet" type="button">APRI / POSA COMBINAZIONE</button>
+          <button id="scala-discard" class="button button-primary" type="button">SCARTA SELEZIONATA</button>
+        </div>
+        <div id="scala-handoff" class="dialog-backdrop hidden" role="presentation">
+          <section class="scopa-capture-dialog glass" role="dialog" aria-modal="true" aria-labelledby="scala-handoff-title">
+            <p class="eyebrow">PARTITA HOT-SEAT</p><h2 id="scala-handoff-title">Passa il dispositivo</h2>
+            <p id="scala-handoff-copy">Passa il dispositivo al giocatore.</p>
+            <button id="scala-handoff-continue" class="button button-primary" type="button">MOSTRA MANO</button>
+          </section>
+        </div>
+      </div>
+      <div id="poker-board" class="game-board glass scopa-board hidden">
+        <div class="poker-status">
+          <span id="poker-street">PREFLOP</span>
+          <span>PIATTO · <strong id="poker-pot">0</strong></span>
+          <span>PUNTATA · <strong id="poker-current-bet">0</strong></span>
+        </div>
+        <div id="poker-community" class="poker-cards" role="group" aria-label="Carte comuni"></div>
+        <div class="poker-seats">
+          <section class="poker-seat" aria-labelledby="poker-opponent-name">
+            <div class="scopa-table-heading"><h3 id="poker-opponent-name">AVVERSARIO</h3><span id="poker-opponent-stack"></span></div>
+            <div id="poker-opponent-hand" class="poker-cards" role="group" aria-label="Carte avversarie"></div>
+          </section>
+          <section class="poker-seat" aria-labelledby="poker-player-name">
+            <div class="scopa-table-heading"><h3 id="poker-player-name">GIOCATORE</h3><span id="poker-player-stack"></span></div>
+            <div id="poker-player-hand" class="poker-cards" role="group" aria-label="Le tue carte private"></div>
+          </section>
+        </div>
+        <p id="poker-message" class="board-message scopa-message" role="status" aria-live="polite"></p>
+        <div class="poker-actions">
+          <button id="poker-fold" class="button button-quiet" type="button">FOLD</button>
+          <button id="poker-check-call" class="button button-quiet" type="button">CHECK</button>
+          <label class="poker-raise-label" for="poker-raise-amount">RILANCIA A <input id="poker-raise-amount" class="text-field" type="number" min="20" step="1" value="20"></label>
+          <button id="poker-raise" class="button button-primary" type="button">RILANCIA</button>
+        </div>
+        <div id="poker-handoff" class="dialog-backdrop hidden" role="presentation">
+          <section class="scopa-capture-dialog glass" role="dialog" aria-modal="true" aria-labelledby="poker-handoff-title">
+            <p class="eyebrow">PARTITA HOT-SEAT</p><h2 id="poker-handoff-title">Passa il dispositivo</h2>
+            <p id="poker-handoff-copy">Passa il dispositivo al giocatore.</p>
+            <button id="poker-handoff-continue" class="button button-primary" type="button">MOSTRA CARTE</button>
+          </section>
+        </div>
+      </div>
+      <div id="mille-board" class="game-board glass scopa-board mille-board hidden">
+        <div class="scopa-scoreboard">
+          <div><span id="mille-player-name">GIOCATORE</span><strong id="mille-player-distance">0</strong></div>
+          <span class="scopa-score-divider">CHILOMETRI · OBIETTIVO 1000</span>
+          <div><span id="mille-opponent-name">AVVERSARIO</span><strong id="mille-opponent-distance">0</strong></div>
+        </div>
+        <div class="mille-race">
+          <section class="mille-racer">
+            <div class="scopa-table-heading"><h3>STATO DI <span id="mille-turn-name"></span></h3><span id="mille-deck-count"></span></div>
+            <div id="mille-player-status" class="mille-status"></div>
+          </section>
+          <section class="mille-racer">
+            <div class="scopa-table-heading"><h3>AVVERSARIO</h3><span id="mille-opponent-hand-count"></span></div>
+            <div id="mille-opponent-status" class="mille-status"></div>
+          </section>
+        </div>
+        <p id="mille-message" class="board-message scopa-message" role="status" aria-live="polite"></p>
+        <section class="scopa-hand-section" aria-labelledby="mille-hand-label">
+          <div class="scopa-table-heading"><h3 id="mille-hand-label">MANO DI <span id="mille-hand-owner"></span></h3><span id="mille-hand-count"></span></div>
+          <div id="mille-hand" class="mille-hand" role="group" aria-label="Carte in mano al giocatore di turno"></div>
+        </section>
+        <div class="mille-actions">
+          <button id="mille-draw" class="button button-quiet" type="button">PESCA</button>
+          <button id="mille-play" class="button button-primary" type="button">GIOCA CARTA</button>
+          <button id="mille-discard" class="button button-quiet" type="button">SCARTA</button>
+        </div>
+        <div id="mille-handoff" class="dialog-backdrop hidden" role="presentation">
+          <section class="scopa-capture-dialog glass" role="dialog" aria-modal="true" aria-labelledby="mille-handoff-title">
+            <p class="eyebrow">PARTITA HOT-SEAT</p><h2 id="mille-handoff-title">Passa il dispositivo</h2>
+            <p id="mille-handoff-copy">Passa il dispositivo al giocatore.</p>
+            <button id="mille-handoff-continue" class="button button-primary" type="button">MOSTRA MANO</button>
+          </section>
+        </div>
+      </div>
+      <div class="game-footer"><span><i class="status-dot"></i> PARTITA LOCALE</span><button id="new-game-button" class="text-button" type="button">NUOVA PARTITA ↻</button></div>
+      <div id="color-dialog" class="dialog-backdrop hidden" role="presentation">
+        <section class="color-dialog glass" role="dialog" aria-modal="true" aria-labelledby="color-title">
+          <button id="close-dialog" class="dialog-close" type="button" aria-label="Annulla scelta colore">×</button>
+          <p class="eyebrow">WILD CARD</p><h2 id="color-title">Scegli il colore</h2>
+          <div class="color-options" role="group" aria-label="Colori disponibili">
+            <button class="color-choice red-choice" data-color="red" type="button" aria-label="Rosso"></button>
+            <button class="color-choice blue-choice" data-color="blue" type="button" aria-label="Blu"></button>
+            <button class="color-choice green-choice" data-color="green" type="button" aria-label="Verde"></button>
+            <button class="color-choice yellow-choice" data-color="yellow" type="button" aria-label="Giallo"></button>
+          </div>
+        </section>
+      </div>
+      <div id="result-dialog" class="dialog-backdrop hidden" role="presentation">
+        <section class="result-dialog glass" role="dialog" aria-modal="true" aria-labelledby="result-title">
+          <p class="eyebrow">FINE PARTITA</p><h2 id="result-title">VITTORIA!</h2><p id="result-copy">Hai svuotato la mano per primo.</p>
+          <button id="result-again" class="button button-primary" type="button">RIGIOCA <span>→</span></button>
+          <button id="result-lobby" class="text-button" type="button">TORNA ALLA LOBBY</button>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

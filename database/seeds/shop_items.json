@@ -1,0 +1,26 @@
+[
+  {
+    "itemId": "theme-lava",
+    "name": "Lava Rossa",
+    "description": "Un tema ardente per l’arena.",
+    "category": "theme",
+    "themeKey": "lava-red",
+    "price": 350
+  },
+  {
+    "itemId": "theme-matrix",
+    "name": "Matrix",
+    "description": "Accenti verdi per una partita nel codice.",
+    "category": "theme",
+    "themeKey": "matrix-green",
+    "price": 350
+  },
+  {
+    "itemId": "theme-royal",
+    "name": "Viola Reale",
+    "description": "Un look regale con bagliori viola.",
+    "category": "theme",
+    "themeKey": "royal-purple",
+    "price": 500
+  }
+]
