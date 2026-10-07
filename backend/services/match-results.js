@@ -2,7 +2,7 @@
 
 const { calculateMultiplayerMatchResult } = require('./ranking');
 
-async function recordMatchResult(pool, { userIds, winnerUserId }) {
+async function recordMatchResult(pool, { userIds, winnerUserId, competitive = true }) {
   if (
     !Array.isArray(userIds)
     || userIds.length < 2
@@ -14,26 +14,28 @@ async function recordMatchResult(pool, { userIds, winnerUserId }) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const stats = await client.query(
-      `SELECT user_id, mmr FROM user_stats
-       WHERE game_mode = 'uno' AND user_id = ANY($1::BIGINT[])
-       ORDER BY user_id FOR UPDATE`,
-      [userIds]
-    );
-    if (stats.rows.length !== userIds.length) {
-      throw new Error('Statistiche UNO non trovate per tutti i partecipanti.');
-    }
-    const ratings = calculateMultiplayerMatchResult(
-      stats.rows.map((row) => ({ userId: String(row.user_id), mmr: row.mmr })),
-      winnerUserId
-    );
-    for (const result of ratings) {
-      await client.query(
-        `UPDATE user_stats SET mmr = $3, rank = $4,
-           games_played = games_played + 1, wins = wins + $5, updated_at = NOW()
-         WHERE user_id = $1 AND game_mode = $2`,
-        [result.userId, 'uno', result.after, result.rank, result.won ? 1 : 0]
+    if (competitive) {
+      const stats = await client.query(
+        `SELECT user_id, mmr FROM user_stats
+         WHERE game_mode = 'uno' AND user_id = ANY($1::BIGINT[])
+         ORDER BY user_id FOR UPDATE`,
+        [userIds]
       );
+      if (stats.rows.length !== userIds.length) {
+        throw new Error('Statistiche UNO non trovate per tutti i partecipanti.');
+      }
+      const ratings = calculateMultiplayerMatchResult(
+        stats.rows.map((row) => ({ userId: String(row.user_id), mmr: row.mmr })),
+        winnerUserId
+      );
+      for (const result of ratings) {
+        await client.query(
+          `UPDATE user_stats SET mmr = $3, rank = $4,
+             games_played = games_played + 1, wins = wins + $5, updated_at = NOW()
+           WHERE user_id = $1 AND game_mode = $2`,
+          [result.userId, 'uno', result.after, result.rank, result.won ? 1 : 0]
+        );
+      }
     }
     const season = await client.query(
       'SELECT season_id FROM battle_card_seasons WHERE active = TRUE'

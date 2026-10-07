@@ -42,7 +42,10 @@ async function findByUsername(pool, username) {
 async function findPublicProfile(pool, userId) {
   const result = await pool.query(
     `SELECT u.id, u.username, u.created_at,
-      COALESCE(json_agg(json_build_object('mode', s.game_mode, 'mmr', s.mmr, 'rank', s.rank))
+      COALESCE(json_agg(json_build_object(
+        'mode', s.game_mode, 'mmr', s.mmr, 'rank', s.rank,
+        'gamesPlayed', s.games_played, 'wins', s.wins
+      ))
         FILTER (WHERE s.game_mode IS NOT NULL), '[]'::json) AS stats
      FROM users u LEFT JOIN user_stats s ON s.user_id = u.id
      WHERE u.id = $1 GROUP BY u.id`,

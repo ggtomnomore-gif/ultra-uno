@@ -116,6 +116,8 @@ forma `{"type":"...","payload":{...}}`.
 |---|---|---|
 | `room.create` | `{}` | Crea stanza; il creatore ne è host. |
 | `room.join` | `{"roomId":"A1B2C3D4"}` | Entra in una stanza aperta; massimo quattro account. |
+| `matchmaking.queue` | `{}` | Cerca un avversario UNO ranked; richiede un account con statistiche persistenti. |
+| `matchmaking.cancel` | `{}` | Annulla la ricerca ranked ancora in coda. |
 | `room.leave` | `{}` | Abbandona la stanza; se esce l'host la stanza viene chiusa. |
 | `game.start` | `{"mode":"uno"}` | Solo l'host; il server avvia UNO Classic quando ci sono almeno due giocatori. |
 | `game.action` | `{"action":{"type":"draw"}}` | Azione del giocatore autenticato; il server verifica turno e regole. |
@@ -131,6 +133,13 @@ colore `red`, `blue`, `green` o `yellow`. Le mosse fuori turno, le carte non
 giocabili, i passaggi non consentiti e le azioni malformate ricevono un evento
 `error`.
 
+Il server invia `matchmaking.queued` durante la ricerca, quindi
+`matchmaking.found` quando trova un avversario; `matchmaking.cancelled`
+conferma l'annullamento. La coda abbina due account in base all'MMR più vicino
+entro 300 punti, ampliando l'intervallo di 100 punti ogni 30 secondi fino a
+1000. Le stanze create con `room.create` o raggiunte con
+`room.join` sono casual e non cambiano la classifica.
+
 Il server invia `room.created`, `room.joined`, `room.playerJoined`,
 `room.playerLeft`, `room.closed` e `game.state`. Ogni `game.state` ha un numero
 `version`; lo stato pubblico contiene solo conteggi delle mani e segnaposto del
@@ -138,15 +147,16 @@ mazzo. La proprietà `privateHand` contiene la mano dell'account destinatario.
 Il server rifiuta l'evento client `game.state` (`SERVER_AUTHORITY`): i client
 non possono creare né sovrascrivere lo stato della partita.
 
-Quando una partita UNO online termina, il server aggiorna atomicamente MMR,
-rank, partite e vittorie per ogni partecipante. In tavoli da 3 o 4 giocatori
-l'Elo usa il punteggio medio contro gli avversari, considerando i non vincitori
-in parità reciproca. Il profilo aggiornato è leggibile con `GET /api/auth/me`;
-la lobby lo ricarica quando si rientra dalla partita.
+Quando una partita UNO ranked termina, il server aggiorna atomicamente MMR,
+rank, partite e vittorie per entrambi i partecipanti. Le partite online casual
+aggiornano progressi Battle Card e Sfide, senza modificare MMR o statistiche
+ranked. Il profilo aggiornato, inclusi rank, MMR, partite e vittorie per
+modalità, è leggibile con `GET /api/auth/me`; la lobby lo ricarica quando si
+rientra dalla partita.
 
 ## Fuori ambito attuale
 
-Non sono ancora disponibili matchmaking, riconnessione, API per amici,
-leaderboard o tornei. Per lo stato di ciascuna modalità consultare
+Non sono ancora disponibili riconnessione, API per amici, leaderboard o
+tornei. Per lo stato di ciascuna modalità consultare
 [`PROJECT_STATUS.md`](PROJECT_STATUS.md). `GET /health` controlla il processo;
 `GET /ready` verifica anche PostgreSQL e Redis.

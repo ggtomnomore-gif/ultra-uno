@@ -134,13 +134,16 @@ main, .screen { position: relative; z-index: 1; min-height: 100vh; }
 .mode-stats strong, .mode-stats small { display: block; }
 .mode-stats strong { color: var(--color-gold); font: 500 19px var(--font-mono); }
 .mode-stats small { margin-top: 4px; color: var(--color-muted); font: 8px var(--font-mono); }
-.toggle-row { display: flex; position: relative; align-items: center; justify-content: space-between; margin-bottom: 17px; cursor: not-allowed; }
+.toggle-row { display: flex; position: relative; align-items: center; justify-content: space-between; margin-bottom: 17px; cursor: pointer; }
 .toggle-row strong, .toggle-row small { display: block; }
 .toggle-row strong { font-size: 11px; }
 .toggle-row small { margin-top: 4px; color: var(--color-muted); font-size: 9px; }
 .toggle-row input { position: absolute; right: 0; width: 37px; height: 21px; opacity: 0; }
 .toggle { width: 37px; height: 21px; border-radius: 20px; background: #37465a; }
 .toggle::after { display: block; width: 15px; height: 15px; margin: 3px; border-radius: 50%; background: #adb8c7; content: ""; }
+.toggle-row input:checked + .toggle { background: var(--color-cyan); }
+.toggle-row input:checked + .toggle::after { margin-left: 19px; background: #fff; }
+.toggle-row input:focus-visible + .toggle { outline: 2px solid var(--color-gold); outline-offset: 3px; }
 .room-tools { display: grid; grid-template-columns: 1fr; gap: 7px; margin-bottom: 13px; }
 .room-create { min-height: 35px; border-color: rgba(0,188,212,.22); color: var(--color-cyan); font-size: 9px; }
 .room-join { display: flex; gap: 6px; }
@@ -177,6 +180,17 @@ main, .screen { position: relative; z-index: 1; min-height: 100vh; }
 .battle-reward .text-button { flex: 0 0 auto; font-size: 8px; }
 .battle-reward .text-button:disabled { color: var(--color-muted); cursor: default; opacity: .7; }
 .battle-card-panel .store-footnote { margin-top: 8px; line-height: 1.5; }
+.profile-summary { display: grid; grid-template-columns: auto repeat(3,minmax(0,1fr)); gap: 14px; align-items: center; padding: 17px; border: 1px solid rgba(0,188,212,.2); border-radius: 12px; background: rgba(0,188,212,.045); }
+.profile-avatar { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid rgba(245,200,66,.4); border-radius: 50%; color: var(--color-gold); background: rgba(245,200,66,.1); font: 800 20px var(--font-display); }
+.profile-summary small, .profile-summary strong { display: block; }
+.profile-summary small { margin-bottom: 6px; color: var(--color-muted); font: 8px var(--font-mono); letter-spacing: .08em; }
+.profile-summary strong { color: var(--color-cyan); font: 700 13px var(--font-display); }
+.profile-stats-title { margin: 22px 0 10px; color: var(--color-muted); font: 9px var(--font-mono); letter-spacing: .12em; }
+.profile-stats { display: grid; grid-template-columns: repeat(auto-fit,minmax(185px,1fr)); gap: 10px; }
+.profile-stat-card { padding: 13px; border: 1px solid rgba(255,255,255,.09); border-radius: 10px; background: rgba(255,255,255,.035); }
+.profile-stat-card h4 { margin: 0 0 10px; color: var(--color-text); font: 700 11px var(--font-display); }
+.profile-stat-card strong { color: var(--color-gold); font: 600 12px var(--font-mono); }
+.profile-stat-card p { margin: 7px 0 0; color: var(--color-muted); font-size: 10px; }
 .challenge-list { display: grid; gap: 10px; }
 .challenge-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px 18px; align-items: center; padding: 16px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(255,255,255,.035); }
 .challenge-card h3 { margin: 0 0 5px; font: 700 13px var(--font-display); }
@@ -388,6 +402,8 @@ main, .screen { position: relative; z-index: 1; min-height: 100vh; }
   .mille-card { width: 54px; height: 78px; }
   .ruba-piles { gap: 8px; }
   .store-heading { align-items: start; }
+  .profile-summary { grid-template-columns: auto 1fr 1fr; }
+  .profile-summary>div:last-child { grid-column: 2 / -1; }
   .store-items { grid-template-columns: repeat(auto-fit,minmax(155px,1fr)); }
   .ruba-pile-panel { padding: 10px 6px; }
   .opponents { gap: 4px; }

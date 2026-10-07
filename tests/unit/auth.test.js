@@ -151,7 +151,11 @@ describe('authentication and account persistence', () => {
     }));
     pool.query
       .mockResolvedValueOnce({ rows: [{ ...storedUser, password_hash: await bcrypt.hash('secure123', 4) }] })
-      .mockResolvedValueOnce({ rows: [{ id: '23', username: 'alice', stats: [] }] });
+      .mockResolvedValueOnce({ rows: [{
+        id: '23',
+        username: 'alice',
+        stats: [{ mode: 'uno', mmr: 240, rank: 'Bronze I', gamesPlayed: 3, wins: 2 }]
+      }] });
     const revokedTokens = new Map();
     const redisClient = {
       isReady: true,
@@ -174,7 +178,11 @@ describe('authentication and account persistence', () => {
     const profile = await request(app).get('/api/auth/me')
       .set('Authorization', `Bearer ${login.body.token}`)
       .expect(200);
-    expect(profile.body.user).toMatchObject({ id: '23', username: 'alice', stats: [] });
+    expect(profile.body.user).toMatchObject({
+      id: '23',
+      username: 'alice',
+      stats: [{ mode: 'uno', mmr: 240, rank: 'Bronze I', gamesPlayed: 3, wins: 2 }]
+    });
     const logout = await request(app).post('/api/auth/logout')
       .set('Authorization', `Bearer ${login.body.token}`)
       .expect(200);

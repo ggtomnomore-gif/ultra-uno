@@ -12,6 +12,7 @@ function createRoomManager({
 } = {}) {
   const rooms = new Map();
   const clients = new Set();
+  const matchmakingQueue = new Map();
 
   function send(client, type, payload = {}) {
     if (client.readyState === 1) {
@@ -29,12 +30,13 @@ function createRoomManager({
     return {
       id: room.id,
       hostId: room.host.userId,
+      competitive: room.competitive,
       players: Array.from(room.players, (client) => ({ userId: client.userId, username: client.username })),
       version: room.version
     };
   }
 
-  function createRoom(client) {
+  function createRoom(client, { competitive = false } = {}) {
     if (client.roomId) leaveRoom(client);
     let id;
     do {
@@ -47,7 +49,8 @@ function createRoomManager({
       version: 0,
       state: null,
       started: false,
-      resultRecorded: false
+      resultRecorded: false,
+      competitive
     };
     rooms.set(id, room);
     client.roomId = id;
@@ -148,11 +151,74 @@ function createRoomManager({
     room.userIds = players.map((player) => player.userId);
     room.game = gameEngine.createGame(
       players.map((player) => player.username),
-      { mmrs: players.map(() => 200) }
+      { mmrs: players.map((player) => Number.isInteger(player.mmr) ? player.mmr : 200) }
     );
     room.game.players.forEach((player) => { player.isHuman = true; });
     room.started = true;
     publishGame(room);
+    return true;
+  }
+
+  function cancelMatchmaking(client, notify = true) {
+    if (!matchmakingQueue.delete(client)) return false;
+    if (notify) send(client, 'matchmaking.cancelled');
+    return true;
+  }
+
+  function queueRankedMatch(client, mmr) {
+    if (client.readyState !== 1) return false;
+    if (!Number.isInteger(mmr) || mmr < 0) {
+      send(client, 'error', { code: 'INVALID_MMR', message: 'Classifica non disponibile.' });
+      return false;
+    }
+    if (client.roomId) {
+      send(client, 'error', { code: 'ALREADY_IN_ROOM', message: 'Esci prima dalla stanza corrente.' });
+      return false;
+    }
+    const userAlreadyPlaying = [...rooms.values()].some((room) =>
+      [...room.players].some((player) => player.userId === client.userId)
+    );
+    if (userAlreadyPlaying) {
+      send(client, 'error', { code: 'ALREADY_IN_ROOM', message: 'Questo account è già in una partita online.' });
+      return false;
+    }
+    if (matchmakingQueue.has(client)) {
+      send(client, 'matchmaking.queued', { mmr, playersAhead: matchmakingQueue.size - 1 });
+      return true;
+    }
+    const duplicate = [...matchmakingQueue.keys()].some((queued) => queued.userId === client.userId);
+    if (duplicate) {
+      send(client, 'error', { code: 'ALREADY_QUEUED', message: 'Questo account è già in coda.' });
+      return false;
+    }
+
+    client.mmr = mmr;
+    let opponent = null;
+    let smallestDifference = Infinity;
+    for (const [queued, entry] of matchmakingQueue) {
+      if (queued.readyState !== 1) {
+        matchmakingQueue.delete(queued);
+        continue;
+      }
+      const difference = Math.abs(entry.mmr - mmr);
+      const maxDifference = Math.min(1000, 300 + Math.floor((Date.now() - entry.queuedAt) / 30000) * 100);
+      if (difference <= maxDifference && difference < smallestDifference) {
+        opponent = queued;
+        smallestDifference = difference;
+      }
+    }
+    if (!opponent) {
+      matchmakingQueue.set(client, { mmr, queuedAt: Date.now() });
+      send(client, 'matchmaking.queued', { mmr, playersAhead: matchmakingQueue.size - 1 });
+      return true;
+    }
+
+    matchmakingQueue.delete(opponent);
+    const room = createRoom(opponent, { competitive: true });
+    joinRoom(client, room.id);
+    send(opponent, 'matchmaking.found', { opponent: client.username });
+    send(client, 'matchmaking.found', { opponent: opponent.username });
+    startGame(opponent, 'uno');
     return true;
   }
 
@@ -203,7 +269,8 @@ function createRoomManager({
       Promise.resolve().then(() => onGameFinished({
         roomId: room.id,
         userIds: [...room.userIds],
-        winnerUserId
+        winnerUserId,
+        competitive: room.competitive
       })).catch((error) => {
         console.error('Match result persistence failed:', error.message);
       });
@@ -212,6 +279,7 @@ function createRoomManager({
   }
 
   function leaveRoom(client) {
+    cancelMatchmaking(client);
     const room = rooms.get(client.roomId);
     client.roomId = null;
     if (!room || !room.players.delete(client)) return;
@@ -231,6 +299,7 @@ function createRoomManager({
   }
 
   function removeClient(client) {
+    cancelMatchmaking(client, false);
     leaveRoom(client);
     clients.delete(client);
   }
@@ -241,6 +310,7 @@ function createRoomManager({
       client.close(1001, 'Server in chiusura');
     });
     rooms.clear();
+    matchmakingQueue.clear();
     clients.clear();
   }
 
@@ -249,6 +319,8 @@ function createRoomManager({
     removeClient,
     createRoom,
     joinRoom,
+    queueRankedMatch,
+    cancelMatchmaking,
     leaveRoom,
     publishState,
     startGame,

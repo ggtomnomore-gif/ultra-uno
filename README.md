@@ -1,9 +1,9 @@
 # UNO ULTRA
 
 Piattaforma UNO ULTRA, in sviluppo: interfaccia web vanilla, server Express,
-account con JWT e PostgreSQL, MMR persistente per le partite online e partite
-locali di UNO contro
-bot, BlackJack contro il banco, Scopa, Ruba Mazzetto, Scala 40, Poker Texas e
+account con JWT e PostgreSQL, profilo e Battle Card, coda competitiva UNO con
+MMR persistente, partite locali di UNO contro bot, BlackJack contro il banco,
+Scopa, Ruba Mazzetto, Scala 40, Poker Texas e
 Millemiglia in modalità hot-seat per due giocatori.
 
 ## Requisiti e avvio
@@ -78,9 +78,9 @@ esegue Jest e questa prova con l'intero stack Docker avviato da zero.
 
 ## Funzionalità implementate e limiti attuali
 
-- Implementati: profili e registrazione persistenti PostgreSQL, login e JWT,
-  rate limiting, logout con revoca JWT via Redis, MMR ELO persistente per le
-  partite UNO online completate e rank aggiornato nel profilo, stanze
+- Implementati: profili e statistiche per modalità persistenti PostgreSQL,
+  registrazione, login e JWT, rate limiting, logout con revoca JWT via Redis,
+  MMR ELO persistente per la coda ranked UNO e rank aggiornato nel profilo, stanze
   WebSocket autenticate con host,
   sincronizzazione stato/mano privata, temi, lobby e motore UNO locale contro
   tre bot, BlackJack contro il banco con hit/stand/double, Scopa e Ruba Mazzetto
@@ -94,11 +94,12 @@ esegue Jest e questa prova con l'intero stack Docker avviato da zero.
   locale per due, senza bot. Il motore di Burraco è disponibile ma non ha ancora
   una UI di gioco. Le stanze online supportano partite UNO Classic da 2 a 4
   account, con partita e mosse validate dal server via WebSocket e carte private
-  consegnate solo al proprietario. Le partite UNO online completate aggiornano
-  MMR, rank, vittorie e progressione Battle Card server-side; il vincitore
-  riceve XP bonus. Le Sfide giornaliere contano partite e vittorie online e
-  pagano V-Coins solo tramite riscatto server-side. Non sono ancora disponibili
-  matchmaking o riconnessione.
+  consegnate solo al proprietario. La coda ranked abbina due account online:
+  solo queste partite aggiornano MMR, rank, vittorie e statistiche ranked.
+  Anche le partite casual in stanza e le partite ranked completate aggiornano
+  la Battle Card server-side; il vincitore riceve XP bonus. Le Sfide giornaliere
+  contano partite e vittorie online e pagano V-Coins solo tramite riscatto
+  server-side. Non è ancora disponibile la riconnessione.
   Il Negozio offre tre temi
   acquistabili con 1000 V-Coins virtuali iniziali, mentre la V-Card mostra
   saldo, tema equipaggiato e ultime transazioni. La Battle Card offre 100
@@ -106,13 +107,11 @@ esegue Jest e questa prova con l'intero stack Docker avviato da zero.
   20 livelli bonus e riscatti singoli o sequenziali. Le partite locali non
   assegnano XP. I crediti non sono denaro reale. È pronto un wrapper client
   PeerJS, non integrato nel gameplay.
-- Ancora da realizzare: presenza online persistente, amicizie, matchmaking, integrazione
+- Ancora da realizzare: presenza online persistente, amicizie, integrazione
   PeerJS e delle altre modalità online nella lobby, rotazione del catalogo
   Sfide, tornei
   e replay. Docker Compose/Nginx vengono verificati in CI tramite una prova di
   registrazione, revoca sessioni e apertura stanza WebSocket.
-- La modalità competitiva resta disabilitata finché non esiste matchmaking
-  server-side.
 
 Lo stato verificato delle modalità e delle funzionalità è in
 [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).

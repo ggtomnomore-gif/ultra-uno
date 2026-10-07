@@ -87,7 +87,7 @@
           <button class="top-tab" type="button" data-section="pass">Battle Card</button>
           <button class="top-tab" type="button" data-section="challenges">Sfide</button>
           <button class="top-tab" type="button" data-section="tournaments">Tornei</button>
-          <button class="top-tab" type="button" data-section="career">Carriera</button>
+          <button class="top-tab" type="button" data-section="career">Profilo</button>
           <button class="top-tab" type="button" data-section="wallet">V-Card</button>
         </nav>
         <button id="theme-button" class="icon-button" type="button" aria-label="Cambia tema" title="Cambia tema">◐</button>
@@ -98,7 +98,7 @@
           <button class="side-link selected" type="button" data-section="play"><span>◈</span> Gioca</button>
           <button class="side-link" type="button" data-section="career"><span>◎</span> Profilo</button>
           <button class="side-link" type="button" data-section="challenges"><span>✳</span> Sfide</button>
-          <button class="side-link" type="button" data-section="pass"><span>▤</span> Season Pass</button>
+          <button class="side-link" type="button" data-section="pass"><span>▤</span> Battle Card</button>
           <button class="side-link" type="button" data-section="wallet"><span>⌁</span> V-Card</button>
           <div class="sidebar-spacer"></div>
           <div class="player-card">
@@ -129,7 +129,7 @@
                 <option value="mille">Millemiglia · 2 giocatori locali</option>
               </select>
               <div class="mode-stats"><div><strong>4</strong><small>GIOCATORI</small></div><div><strong>108</strong><small>CARTE</small></div><div><strong>3</strong><small>BOT AI</small></div></div>
-              <label class="toggle-row"><span><strong>Modalità competitiva</strong><small>La coda ranked sarà disponibile in futuro</small></span><input id="competitive-toggle" type="checkbox" disabled><span class="toggle" aria-hidden="true"></span></label>
+              <label class="toggle-row"><span><strong>Modalità competitiva</strong><small>UNO ranked online · MMR aggiornato a fine partita</small></span><input id="competitive-toggle" type="checkbox"><span class="toggle" aria-hidden="true"></span></label>
               <div class="room-tools">
                 <button id="create-room-button" class="button button-quiet room-create" type="button">CREA STANZA ONLINE</button>
                 <div class="room-join">
@@ -140,6 +140,8 @@
                 <p id="room-status" class="room-status" role="status" aria-live="polite" hidden></p>
                 <button id="start-online-button" class="button button-primary" type="button" hidden>AVVIA PARTITA ONLINE</button>
                 <button id="leave-room-button" class="text-button" type="button" hidden>ESCI DALLA STANZA</button>
+                <button id="matchmaking-button" class="button button-primary" type="button" hidden>CERCA PARTITA RANKED</button>
+                <p id="matchmaking-status" class="room-status" role="status" aria-live="polite" hidden></p>
               </div>
               <button id="play-button" class="button button-primary play-button" type="button">GIOCA ORA <span>→</span></button>
             </div>
@@ -180,6 +182,21 @@
             <div id="locker-items" class="store-items" role="list"></div>
             <button class="button button-quiet" type="button" data-section="shop">SCOPRI IL NEGOZIO</button>
           </section>
+          <section id="profile-panel" class="store-panel profile-panel hidden" aria-labelledby="profile-title">
+            <div class="store-heading">
+              <div><p class="eyebrow">ACCOUNT E STATISTICHE</p><h2 id="profile-title" tabindex="-1">Profilo <span>GIOCATORE</span></h2></div>
+              <p id="profile-created" class="store-balance">ISCRITTO <strong>—</strong></p>
+            </div>
+            <p id="profile-message" class="lobby-notice" role="status" aria-live="polite"></p>
+            <div class="profile-summary">
+              <div class="profile-avatar" aria-hidden="true">U</div>
+              <div><small>NOME GIOCATORE</small><strong id="profile-username">—</strong></div>
+              <div><small>RANK UNO</small><strong id="profile-rank">—</strong></div>
+              <div><small>MMR UNO</small><strong id="profile-mmr">—</strong></div>
+            </div>
+            <h3 class="profile-stats-title">STATISTICHE PER MODALITÀ</h3>
+            <div id="profile-stats" class="profile-stats" role="list" aria-label="Statistiche di gioco per modalità"></div>
+          </section>
           <section id="battle-card-panel" class="store-panel battle-card-panel hidden" aria-labelledby="battle-card-title">
             <div class="store-heading">
               <div><p class="eyebrow">PROGRESSIONE STAGIONALE</p><h2 id="battle-card-title" tabindex="-1">Battle Card <span>ULTRA</span></h2></div>
@@ -193,7 +210,7 @@
               <button id="battle-card-claim-all" class="button button-quiet" type="button" data-battle-action="claim-all">RISCATTA TUTTO</button>
             </div>
             <div id="battle-card-levels" class="battle-card-levels" role="list" aria-label="Livelli e ricompense della stagione"></div>
-            <p class="store-footnote">Ogni partita UNO online completata assegna esperienza; la vittoria concede esperienza bonus. Le partite locali non hanno ancora progressione salvata.</p>
+            <p class="store-footnote">Ogni partita UNO online completata assegna esperienza; le partite ranked aggiornano anche MMR e statistiche. La vittoria concede esperienza bonus. Le partite locali non hanno progressione salvata.</p>
           </section>
           <section id="challenges-panel" class="store-panel challenges-panel hidden" aria-labelledby="challenges-title">
             <div class="store-heading">

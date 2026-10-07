@@ -96,6 +96,7 @@ function createHttpServer(options = {}) {
   const websocketServer = createWebSocketServer(server, {
     jwtSecret: options.jwtSecret || process.env.JWT_SECRET,
     redisClient: options.redisClient,
+    pool: database,
     rooms: options.rooms,
     onGameFinished: options.onGameFinished || ((result) => recordMatchResult(database, result))
   });

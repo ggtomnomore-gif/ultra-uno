@@ -80,6 +80,14 @@
       this.send('room.join', { roomId: roomId.toUpperCase() });
     }
 
+    queueRankedMatch() {
+      this.send('matchmaking.queue');
+    }
+
+    cancelMatchmaking() {
+      this.send('matchmaking.cancel');
+    }
+
     startGame(mode) {
       this.send('game.start', { mode });
     }

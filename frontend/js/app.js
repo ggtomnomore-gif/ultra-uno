@@ -36,6 +36,8 @@
   let onlineRoom = null;
   let onlineIdentity = null;
   let onlineGame = false;
+  let rankedMatch = false;
+  let matchmakingActive = false;
   let onlineVersion = -1;
   let onlineUserIds = [];
   let onlinePlayerIndex = 0;
@@ -86,6 +88,7 @@
     $('#player-session-label').textContent = 'OSPITE · SOLO MODALITÀ LOCALI';
     $('#lobby-notice').textContent = 'Modalità ospite: account, progressi e stanze online non sono disponibili.';
     $('#lobby-notice').hidden = false;
+    updateOnlineRoomUI();
     showScreen('lobby-screen');
   }
 
@@ -178,6 +181,8 @@
       realtime = null;
       onlineRoom = null;
       onlineGame = false;
+      rankedMatch = false;
+      matchmakingActive = false;
       onlineVersion = -1;
       onlineUserIds = [];
       updateOnlineRoomUI();
@@ -239,15 +244,44 @@
       showScreen('lobby-screen');
     });
     realtime.on('game.state', (payload) => receiveOnlineGameState(payload));
+    realtime.on('matchmaking.queued', (payload) => {
+      matchmakingActive = true;
+      const status = $('#matchmaking-status');
+      status.hidden = false;
+      status.textContent = `In coda ranked · ${payload.mmr} MMR · ricerca avversario…`;
+      $('#matchmaking-button').textContent = 'ANNULLA RICERCA';
+    });
+    realtime.on('matchmaking.found', (payload) => {
+      matchmakingActive = false;
+      rankedMatch = true;
+      const status = $('#matchmaking-status');
+      status.hidden = false;
+      status.textContent = `Partita ranked trovata contro ${payload.opponent}.`;
+      $('#matchmaking-button').textContent = 'CERCA PARTITA RANKED';
+      updateOnlineRoomUI();
+    });
+    realtime.on('matchmaking.cancelled', () => {
+      matchmakingActive = false;
+      $('#matchmaking-status').hidden = true;
+      $('#matchmaking-button').textContent = 'CERCA PARTITA RANKED';
+    });
     realtime.on('client.close', () => {
       if (onlineRoom) showLobbyNotice('Connessione online interrotta.');
       onlineRoom = null;
       onlineGame = false;
+      rankedMatch = false;
+      matchmakingActive = false;
       onlineVersion = -1;
       onlineUserIds = [];
       updateOnlineRoomUI();
     });
     realtime.on('error', (message) => {
+      if (message.code === 'MATCHMAKING_UNAVAILABLE' || message.code === 'RANK_NOT_FOUND') {
+        matchmakingActive = false;
+        $('#matchmaking-status').hidden = false;
+        $('#matchmaking-status').textContent = message.message;
+        $('#matchmaking-button').textContent = 'CERCA PARTITA RANKED';
+      }
       showLobbyNotice(message.message || 'Operazione stanza non riuscita.');
     });
     realtime.on('client.error', (error) => {
@@ -268,12 +302,56 @@
     guestMode = false;
     $('#player-name').value = user.username;
     $('#lobby-player-name').textContent = user.username;
-    $('#player-session-label').textContent = 'Livello 01 · Bronze I';
     const unoStats = Array.isArray(user.stats) ? user.stats.find((stats) => stats.mode === 'uno') : null;
     if (unoStats) {
       $('#rank-value').textContent = unoStats.rank.toUpperCase();
       $('#rank-mmr').textContent = `${unoStats.mmr} MMR`;
+      $('#player-session-label').textContent = `Rank · ${unoStats.rank}`;
     }
+    renderPlayerProfile(user);
+    updateOnlineRoomUI();
+  }
+
+  function renderPlayerProfile(user) {
+    const unoStats = Array.isArray(user.stats) ? user.stats.find((stats) => stats.mode === 'uno') : null;
+    $('#profile-username').textContent = user.username;
+    $('#profile-rank').textContent = unoStats?.rank || 'Bronze I';
+    $('#profile-mmr').textContent = `${unoStats?.mmr ?? 200} MMR`;
+    $('#profile-created').querySelector('strong').textContent = user.created_at
+      ? new Date(user.created_at).toLocaleDateString('it-IT')
+      : '—';
+    $('.profile-avatar').textContent = user.username.slice(0, 1).toUpperCase();
+    const modeNames = {
+      uno: 'UNO Classic',
+      scala40: 'Scala 40',
+      'ruba-mazzetto': 'Ruba Mazzetto',
+      blackjack: 'BlackJack',
+      scopa: 'Scopa',
+      'poker-texas': 'Poker Texas',
+      burraco: 'Burraco',
+      mille: 'Millemiglia'
+    };
+    const list = $('#profile-stats');
+    list.replaceChildren();
+    (Array.isArray(user.stats) ? user.stats : []).forEach((stats) => {
+      const card = document.createElement('article');
+      card.className = 'profile-stat-card';
+      card.setAttribute('role', 'listitem');
+      const isUno = stats.mode === 'uno';
+      const title = document.createElement('h4');
+      title.textContent = modeNames[stats.mode] || stats.mode;
+      const rank = document.createElement('strong');
+      rank.textContent = isUno ? (stats.rank || 'Bronze I') : 'Statistiche non attive';
+      const details = document.createElement('p');
+      details.textContent = isUno
+        ? `${stats.mmr ?? 0} MMR · ${stats.gamesPlayed ?? 0} ranked · ${stats.wins ?? 0} vittorie`
+        : 'Questa modalità non salva ancora statistiche online.';
+      card.append(title, rank, details);
+      list.append(card);
+    });
+    $('#profile-message').textContent = user.stats?.length
+      ? ''
+      : 'Le statistiche appariranno qui dopo le prime partite competitive.';
   }
 
   async function refreshPlayerProfile() {
@@ -291,13 +369,23 @@
         return false;
       }
       if (!response.ok) {
-        showLobbyNotice(data.error || 'Profilo non aggiornato.');
+        const message = data.error || 'Profilo non aggiornato.';
+        if (!$('#profile-panel').classList.contains('hidden')) {
+          $('#profile-message').textContent = message;
+        } else {
+          showLobbyNotice(message);
+        }
         return false;
       }
       applyPlayerProfile(data.user);
       return true;
     } catch (error) {
-      showLobbyNotice(`Profilo non aggiornato: ${error.message}`);
+      const message = `Profilo non aggiornato: ${error.message}`;
+      if (!$('#profile-panel').classList.contains('hidden')) {
+        $('#profile-message').textContent = message;
+      } else {
+        showLobbyNotice(message);
+      }
       return false;
     }
   }
@@ -311,15 +399,23 @@
     start.hidden = !host;
     leave.hidden = !onlineRoom;
     $('#game-mode').disabled = Boolean(onlineRoom);
+    const rankedSelected = $('#competitive-toggle').checked && $('#game-mode').value === 'uno' && !guestMode;
+    $('#create-room-button').classList.toggle('hidden', rankedSelected);
+    $('.room-join').classList.toggle('hidden', rankedSelected);
+    $('#matchmaking-button').hidden = !rankedSelected || Boolean(onlineRoom);
+    $('#matchmaking-button').disabled = !realtime?.authenticated && matchmakingActive;
     if (onlineRoom) {
       status.textContent = `STANZA ${onlineRoom.id} · ${onlineRoom.players.map((player) => player.username).join(', ')} · ${onlineRoom.players.length}/4`;
       start.disabled = onlineRoom.players.length < 2;
       $('#play-button').disabled = true;
       $('#play-button').setAttribute('aria-label', 'Usa avvia partita online per giocare nella stanza');
+      $('#competitive-toggle').checked = Boolean(onlineRoom.competitive);
     } else {
       $('#play-button').disabled = false;
       $('#play-button').removeAttribute('aria-label');
     }
+    $('#competitive-toggle').disabled = Boolean(onlineRoom) || guestMode;
+    $('#play-button').classList.toggle('hidden', rankedSelected && !onlineRoom);
   }
 
   function applyTheme(theme) {
@@ -832,7 +928,9 @@
       player.isHuman = true;
       player.hand = index === playerIndex ? (payload.privateHand || []) : Array(player.handCount || 0).fill(null);
     });
-    $('#match-label').textContent = `UNO ONLINE · ${game.players.length} GIOCATORI`;
+    $('#match-label').textContent = rankedMatch
+      ? `UNO RANKED · ${game.players.length} GIOCATORI`
+      : `UNO ONLINE CASUAL · ${game.players.length} GIOCATORI`;
     setGameTitle('UNO ', 'ONLINE');
     $('#result-dialog').classList.add('hidden');
     $('#uno-board').classList.remove('hidden');
@@ -1049,6 +1147,7 @@
 
   function startUnoGame() {
     onlineGame = false;
+    rankedMatch = false;
     onlineVersion = -1;
     onlinePlayerIndex = 0;
     window.clearTimeout(botTimer);
@@ -2013,6 +2112,24 @@
     submitAuth(event.currentTarget, 'register');
   });
   $('#play-button').addEventListener('click', startGame);
+  $('#matchmaking-button').addEventListener('click', async () => {
+    try {
+      const client = await connectRealtime();
+      if (matchmakingActive) {
+        client.cancelMatchmaking();
+        matchmakingActive = false;
+        $('#matchmaking-status').hidden = true;
+        $('#matchmaking-button').textContent = 'CERCA PARTITA RANKED';
+        return;
+      }
+      $('#matchmaking-status').hidden = false;
+      $('#matchmaking-status').textContent = 'Connessione alla coda competitiva…';
+      client.queueRankedMatch();
+    } catch (error) {
+      $('#matchmaking-status').hidden = false;
+      $('#matchmaking-status').textContent = error.message;
+    }
+  });
   $('#game-mode').addEventListener('change', (event) => {
     const mode = event.currentTarget.value;
     const blackjackSelected = mode === 'blackjack';
@@ -2064,6 +2181,20 @@
     const arrow = document.createElement('span');
     arrow.textContent = '→';
     playButton.append(arrow);
+    updateOnlineRoomUI();
+  });
+  $('#competitive-toggle').addEventListener('change', (event) => {
+    if (guestMode && event.currentTarget.checked) {
+      event.currentTarget.checked = false;
+      showLobbyNotice('La modalità competitiva richiede un account e una connessione online.');
+    }
+    if (!event.currentTarget.checked && matchmakingActive && realtime?.authenticated) {
+      realtime.cancelMatchmaking();
+      matchmakingActive = false;
+      $('#matchmaking-status').hidden = true;
+      $('#matchmaking-button').textContent = 'CERCA PARTITA RANKED';
+    }
+    updateOnlineRoomUI();
   });
   $('#create-room-button').addEventListener('click', async () => {
     try {
@@ -2222,7 +2353,7 @@
   document.querySelectorAll('[data-section]').forEach((button) => {
     button.addEventListener('click', () => {
       const section = button.dataset.section;
-      if (!['play', 'shop', 'wallet', 'locker', 'pass', 'challenges'].includes(section)) {
+      if (!['play', 'shop', 'wallet', 'locker', 'pass', 'challenges', 'career'].includes(section)) {
         showLobbyNotice(`${button.textContent.trim()}: disponibile in un prossimo aggiornamento.`);
         return;
       }
@@ -2231,12 +2362,14 @@
       const locker = section === 'locker';
       const battleCard = section === 'pass';
       const challenges = section === 'challenges';
+      const profile = section === 'career';
       $('#lobby-notice').hidden = true;
-      $('#play-layout').classList.toggle('hidden', shopping || wallet || locker || battleCard || challenges);
-      $('.coming-soon').classList.toggle('hidden', shopping || wallet || locker || battleCard || challenges);
+      $('#play-layout').classList.toggle('hidden', shopping || wallet || locker || battleCard || challenges || profile);
+      $('.coming-soon').classList.toggle('hidden', shopping || wallet || locker || battleCard || challenges || profile);
       $('#store-panel').classList.toggle('hidden', !shopping);
       $('#wallet-panel').classList.toggle('hidden', !wallet);
       $('#locker-panel').classList.toggle('hidden', !locker);
+      $('#profile-panel').classList.toggle('hidden', !profile);
       $('#battle-card-panel').classList.toggle('hidden', !battleCard);
       $('#challenges-panel').classList.toggle('hidden', !challenges);
       document.querySelectorAll('[data-section]').forEach((item) => {
@@ -2244,6 +2377,19 @@
         if (item.classList.contains('top-tab')) item.classList.toggle('active', item.dataset.section === section);
       });
       if (shopping || wallet || locker) loadStore();
+      if (profile) {
+        if (guestMode || !localStorage.getItem('uno-ultra-token')) {
+          $('#profile-message').textContent = 'Accedi o crea un account per visualizzare e salvare le statistiche del profilo.';
+          $('#profile-stats').replaceChildren();
+        } else {
+          $('#profile-message').textContent = 'Caricamento profilo…';
+          refreshPlayerProfile().then((loaded) => {
+            if (!loaded && !$('#profile-message').textContent) {
+              $('#profile-message').textContent = 'Impossibile caricare il profilo.';
+            }
+          });
+        }
+      }
       if (battleCard) loadBattleCard();
       if (challenges) loadChallenges();
     });

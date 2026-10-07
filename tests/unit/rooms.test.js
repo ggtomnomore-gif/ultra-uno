@@ -155,8 +155,44 @@ describe('server-authoritative UNO rooms', () => {
     expect(onGameFinished).toHaveBeenCalledWith({
       roomId: 'RESULT01',
       userIds: ['1', '2'],
-      winnerUserId: '1'
+      winnerUserId: '1',
+      competitive: false
     });
+  });
+
+  test('pairs the closest ranked players and starts a competitive server-authoritative game', () => {
+    const rooms = createRoomManager({ idGenerator: () => 'RANK0001' });
+    const first = fakeClient('1');
+    const distant = fakeClient('2');
+    const closest = fakeClient('3');
+
+    expect(rooms.queueRankedMatch(first, 200)).toBe(true);
+    expect(first.messages.at(-1)).toMatchObject({
+      type: 'matchmaking.queued',
+      payload: { mmr: 200, playersAhead: 0 }
+    });
+    rooms.queueRankedMatch(distant, 900);
+    rooms.queueRankedMatch(closest, 220);
+
+    expect(first.messages.some((message) => message.type === 'matchmaking.found')).toBe(true);
+    expect(closest.messages.some((message) => message.type === 'matchmaking.found')).toBe(true);
+    expect(latestGameState(first).payload.state.onlineUserIds).toEqual(['1', '3']);
+    expect(first.messages.find((message) => message.type === 'room.created').payload.competitive).toBe(true);
+    expect(latestGameState(closest).payload.state.status).toBe('playing');
+    expect(distant.messages.at(-1).type).toBe('matchmaking.queued');
+  });
+
+  test('allows a player to cancel ranked matchmaking and removes disconnected players', () => {
+    const rooms = createRoomManager();
+    const player = fakeClient('1');
+    rooms.queueRankedMatch(player, 200);
+    expect(rooms.cancelMatchmaking(player)).toBe(true);
+    expect(player.messages.at(-1).type).toBe('matchmaking.cancelled');
+    expect(rooms.queueRankedMatch(player, 200)).toBe(true);
+    rooms.removeClient(player);
+    const opponent = fakeClient('2');
+    rooms.queueRankedMatch(opponent, 200);
+    expect(opponent.messages.at(-1).type).toBe('matchmaking.queued');
   });
 
   test('closes the room when its host disconnects and removes departing guests', () => {

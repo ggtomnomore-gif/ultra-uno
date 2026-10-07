@@ -4,7 +4,7 @@ const { WebSocketServer } = require('ws');
 const jwt = require('jsonwebtoken');
 const { createRoomManager } = require('./rooms');
 
-function createWebSocketServer(httpServer, { jwtSecret, redisClient, rooms, onGameFinished }) {
+function createWebSocketServer(httpServer, { jwtSecret, redisClient, pool, rooms, onGameFinished }) {
   const roomManager = rooms || createRoomManager({ onGameFinished });
   const websocketServer = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
   const heartbeat = setInterval(() => {
@@ -114,6 +114,42 @@ function createWebSocketServer(httpServer, { jwtSecret, redisClient, rooms, onGa
           break;
         case 'room.join':
           roomManager.joinRoom(client, message.payload.roomId);
+          break;
+        case 'matchmaking.queue': {
+          if (!pool) {
+            client.send(JSON.stringify({
+              type: 'error',
+              payload: { code: 'MATCHMAKING_UNAVAILABLE', message: 'La coda competitiva non è disponibile.' },
+              timestamp: Date.now()
+            }));
+            break;
+          }
+          try {
+            const result = await pool.query(
+              "SELECT mmr FROM user_stats WHERE user_id = $1 AND game_mode = 'uno'",
+              [client.userId]
+            );
+            if (!result.rows[0]) {
+              client.send(JSON.stringify({
+                type: 'error',
+                payload: { code: 'RANK_NOT_FOUND', message: 'Classifica UNO non disponibile.' },
+                timestamp: Date.now()
+              }));
+              break;
+            }
+            roomManager.queueRankedMatch(client, result.rows[0].mmr);
+          } catch (error) {
+            console.error('Ranked matchmaking lookup failed:', error.message);
+            client.send(JSON.stringify({
+              type: 'error',
+              payload: { code: 'MATCHMAKING_UNAVAILABLE', message: 'Impossibile accedere alla classifica.' },
+              timestamp: Date.now()
+            }));
+          }
+          break;
+        }
+        case 'matchmaking.cancel':
+          roomManager.cancelMatchmaking(client);
           break;
         case 'room.leave':
           roomManager.leaveRoom(client);

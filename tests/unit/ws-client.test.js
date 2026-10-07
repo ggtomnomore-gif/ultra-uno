@@ -46,6 +46,10 @@ describe('WebSocket browser client', () => {
     client.createRoom();
     client.joinRoom('a1b2c3d4');
     expect(socket.sent.at(-1).payload.roomId).toBe('A1B2C3D4');
+    client.queueRankedMatch();
+    expect(socket.sent.at(-1).type).toBe('matchmaking.queue');
+    client.cancelMatchmaking();
+    expect(socket.sent.at(-1).type).toBe('matchmaking.cancel');
     expect(() => client.joinRoom('not-a-code')).toThrow('Codice stanza');
     client.close();
     expect(client.authenticated).toBe(false);

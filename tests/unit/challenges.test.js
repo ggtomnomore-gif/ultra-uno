@@ -126,4 +126,21 @@ describe('daily challenge API', () => {
     expect(query.mock.calls[6][1]).toEqual(['2', false]);
     expect(query.mock.calls.at(-1)[0]).toBe('COMMIT');
   });
+
+  test('does not change MMR or ranked stats for casual room matches', async () => {
+    const query = jest.fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ season_id: 'ultra-season-1' }] })
+      .mockResolvedValue({});
+    await recordMatchResult(createPool(null, query), {
+      userIds: ['1', '2'],
+      winnerUserId: '1',
+      competitive: false
+    });
+
+    expect(query.mock.calls.some(([sql]) => sql.includes('FROM user_stats'))).toBe(false);
+    expect(query.mock.calls.some(([sql]) => sql.includes('INSERT INTO battle_card_progress'))).toBe(true);
+    expect(query.mock.calls.some(([sql]) => sql.includes('INSERT INTO user_daily_challenges'))).toBe(true);
+    expect(query.mock.calls.at(-1)[0]).toBe('COMMIT');
+  });
 });
